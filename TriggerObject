@@ -1,0 +1,91 @@
+// Object Controller
+// v0.1.0 Beta by WigeDev
+
+// Place this script in the control object. On touch it will tell
+// The object to move
+
+string configName = "ObjectControllerConfig";
+string objectID = "----";
+string password = "ReplaceByConfig";
+list whitelist;
+
+// DON'T CHANGE ANYTHING BELOW THIS! ////////////////////////////////
+// Configuration processing
+key notecardQueryId; // The id of the data from the card
+integer confLine; // The line of the card being read
+
+init()
+{
+    llOwnerSay("Controller UUID: " + (string)llGetKey());
+    llOwnerSay("Put this in the object's config card.");
+    // Make sure the config notecard exists
+    if(llGetInventoryType(configName) != INVENTORY_NOTECARD) {
+        llOwnerSay("Configuration Notecard Not Found.");
+        return;
+    }
+    // Reset the list of authorized users
+    whitelist = [];
+    // Initialize the card reading process
+    confLine = 0;
+    notecardQueryId = llGetNotecardLine(configName, confLine);
+}
+
+processConfiguration(string data)
+{
+    if (data == EOF) {
+        llOwnerSay("Object Controller configured");
+        return;
+    }
+    if (data != "" && llSubStringIndex(data, "#") != 0) {
+        integer i = llSubStringIndex(data, "=");
+        if (i != -1) {
+            string name = llGetSubString(data, 0, i-1);
+            string value = llGetSubString(data, i+1, -1);
+            if (name == "objectID") {
+                objectID = value;
+            } else if (name == "password") {
+                password = value;
+            } else if (name == "user") {
+                whitelist += value;
+            }
+        }
+    }
+    notecardQueryId = llGetNotecardLine(configName, ++confLine);
+}
+
+default
+{
+    changed(integer change)
+    {
+        if (change & (CHANGED_OWNER | CHANGED_INVENTORY)) {
+            init();
+        }
+    }
+    
+    state_entry()
+    {
+        init();
+    }
+    
+    touch_start(integer num_detected)
+    {
+        if (llGetListLength(whitelist) != 0) {
+            key    avatarKey  = llDetectedKey(0);
+            string avatarName = llDetectedName(0);
+            if (llListFindList(whitelist, [avatarName]) != -1) {
+                llRegionSayTo(cageID, 2, password);
+            } else {
+                llOwnerSay(avatarName + " not authorized.");
+            }
+        } else {
+            llRegionSayTo(objectID, 2, password);
+        }
+    }
+    
+    dataserver(key request_id, string data)
+    {
+        if (request_id == notecardQueryId) {
+            processConfiguration(data);
+        }
+    }
+}
