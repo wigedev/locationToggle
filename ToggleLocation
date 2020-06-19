@@ -1,0 +1,174 @@
+// Location Toggle System
+// v0.1.0 Beta by WigeDev
+
+// Moves the object from one location to another. Be aware that the movement of
+// objects is only accurate to within approximately 0.2 meters.
+
+// Button password. Change to whatever password the button sends
+string controllerID = "----";
+string password = "ReplaceMe"; // Gets replaced by notecard value
+// Set to not 0 to enable debugging
+integer enable_debugging = 0;
+vector moveDistance = <0.0, 0.0, 0.0>;
+
+// DON'T CHANGE ANYTHING BELOW THIS! ////////////////////////////////
+// Movement
+integer isMoved = 0; // Nonzero if the object is in the destination pos
+vector origPos; // The original position of the object
+vector destPos; // The new position of the object
+// Communications
+integer listen_handle; // The listener for commands
+// Configuration processing
+string configName = "ToggleConfig";
+key notecardQueryId; // The id of the data from the card
+integer confLine; // The line of the card being read
+
+init()
+{
+    // Make sure object is in the origin position before resetting
+    if (isMoved) {
+        llOwnerSay("Please return the object to original position before changing the config.");
+        return;
+    }
+    // Make sure the config notecard exists
+    if(llGetInventoryType(configName) != INVENTORY_NOTECARD) {
+        llOwnerSay("Configuration Notecard Not Found.");
+        return;
+    }
+    // Initialize the card reading process
+    confLine = 0;
+    notecardQueryId = llGetNotecardLine(configName, confLine);
+    // Listen for incoming connections
+    listen_handle = llListen(2, "", "", "");
+}
+
+// Set up the cage movement after the configuration has been read
+setupObjectMovement()
+{
+    llSetStatus(STATUS_PHYSICS, FALSE);
+    llSleep(0.5);
+    origPos = llGetPos();
+    debug("OrigPos: " + (string)origPos);
+    destPos = origPos + moveDistance;
+    debug("DestPos: " + (string)destPos);
+    debug("Object Movement setup");
+}
+
+processConfiguration(string data)
+{
+    if (data == EOF) {
+        debug("Config read.");
+        setupObjectMovement();
+        return;
+    }
+    if (data != "" && llSubStringIndex(data, "#") != 0) {
+        integer i = llSubStringIndex(data, "=");
+        if (i != -1) {
+            string name = llGetSubString(data, 0, i-1);
+            string value = llGetSubString(data, i+1, -1);
+            if (name == "controllerID") {
+                controllerID = value;
+            } else if (name == "password") {
+                password = value;
+            } else if (name == "moveDistance") {
+                moveDistance = (vector)value;
+            } else if (name == "debug") {
+                enable_debugging = 1;
+            }
+        }
+    }
+    notecardQueryId = llGetNotecardLine(configName, ++confLine);
+}
+
+// Output an appropriate message
+showMoveMessage()
+{
+    if (isMoved) {
+        llSay(0, "Caution, cage is being moved!");
+    } else {
+        llSay(0, "Caution, cage is being moved!");
+    }
+}
+
+// Set up the movement
+move()
+{
+    if (isMoved) {
+        doMove(origPos);
+    } else {
+        doMove(destPos);
+    }
+    isMoved = !isMoved;
+}
+
+doMove(vector destination)
+{
+    debug("Moving to: " + (string)destination);
+    llSetStatus(STATUS_PHYSICS, TRUE);
+    llSleep(0.5);
+    llMoveToTarget(destination,1.0);
+    llSleep(10.0);
+    llSetStatus(STATUS_PHYSICS, FALSE);
+    debug("Arrived at: " + (string)llGetPos());
+}
+
+//doNonPhysicalMove(vector destination) {
+//    debug("Moving to: " + (string)destination);
+//    llSetStatus(STATUS_PHYSICS, TRUE);
+//    llSleep(0.5);
+//    llMoveToTarget(destination,0.4);
+//    llSleep(10.0);
+//    llSetStatus(STATUS_PHYSICS, FALSE);
+//    debug("Arrived at: " + (string)llGetPos());
+//}
+
+debug(string message)
+{
+    if (enable_debugging) {
+        //llSay(DEBUG_CHANNEL, message);
+        llOwnerSay(message);
+    }
+}
+
+default
+{
+    changed(integer change)
+    {
+        if (change & (CHANGED_OWNER | CHANGED_INVENTORY)) {
+            init();
+        }
+    }
+    
+    state_entry()
+    {
+        llOwnerSay("Obj UUID: " + (string)llGetKey());
+        llOwnerSay("Put this in the controller's config card.");
+        init();
+    }
+    
+    // Only respond to touch events if debugging.
+    touch_start(integer num_detected)
+    {
+        if (enable_debugging) {
+            showMoveMessage();
+            move();
+        }
+    }
+    
+    // Listens for incoming messages from other scripts telling
+    // the cage to open or close
+    listen( integer channel, string name, key id, string message )
+    {
+        if (channel == 2 && message == password) {
+            showMoveMessage();
+            move();
+        }
+    }
+    
+    dataserver(key request_id, string data)
+    {
+        if (request_id == notecardQueryId) {
+            processConfiguration(data);
+        }
+    }
+}
