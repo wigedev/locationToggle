@@ -1,0 +1,6 @@
+# The password the controller will send
+password=AlphaOmega
+# The distance (in meters) to raise the cage, X, Y, Z format
+moveDistance=<0.0, 0.0, 6.0>
+# Uncomment the next line to turn on debugging messages
+#debug=1
