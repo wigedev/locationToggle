@@ -1,0 +1,9 @@
+# This config file goes in the control object
+# Put the UUID of the object here
+cageID=aaaa-aaaa-aaaa-aaaa
+# The password the controller will send to the cage
+password=AlphaOmega
+# The names of users who can interact. If no names are
+# provided, any user can interact with this.
+user=YourName
+user=FriendName
